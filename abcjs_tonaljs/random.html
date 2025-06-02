@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Melody Generator</title>
+  <script src="abcjs-basic.js" type="text/javascript"></script>
+  <link rel="stylesheet" type="text/css" href="abcjs-audio.css">
+  <script src="https://cdn.jsdelivr.net/npm/tonal/browser/tonal.min.js"></script>
+
+  <!--
+  Docs:
+  https://tonaljs.github.io/tonal/docs
+  https://paulrosen.github.io/abcjs/
+  -->
+
+  <script type="module">
+
+    const scaleOptions = [
+      "C major", "A minor", "G major", "E minor", "F major", "D minor"
+    ];
+
+    function generateMelody(scaleName) {
+      const scale = Tonal.Scale.get(scaleName).notes;
+      const melody = [];
+
+      // A rhythmic pattern is an array of 1 and 0 indicating beats or rests (respectively). They are dimension-less.
+      // An example: [1, 0, 1, 1, 0, 1, 0, 1]
+      const rhythmPattern = Tonal.RhythmPattern.random(8);
+
+      //DurationValue.shorthands(); // => ["dl", "l", "d", "w", "h", "q", "e", "s", "t", "sf", "h", "th"]
+
+      // Compose melody using the random rhythm pattern
+      for (let i = 0; i < rhythmPattern.length; i++) {
+        const note = scale[Math.floor(Math.random() * scale.length)];
+        
+        // Using rhythmPattern and DurationValue, create a funky random melody:
+        let duration;
+        if (rhythmPattern[i] === 1) {
+          // For beats, randomly choose between quarter, eighth, and sixteenth notes
+          const durations = ['q', 'e', 's'];
+          duration = durations[Math.floor(Math.random() * durations.length)];
+        } else {
+          // For rests, use quarter note rests
+          duration = 'z';
+        }
+        
+        // Add some funky elements:
+        // 1. Occasionally add ties
+        const addTie = Math.random() < 0.2;
+        // 2. Occasionally add staccato
+        const addStaccato = Math.random() < 0.3;
+        
+        let noteStr = note[0].toUpperCase() + (Math.random() > 0.5 ? "" : "'");
+        if (addTie) noteStr += "-";
+        if (addStaccato) noteStr += ".";
+        
+        melody.push(noteStr + duration);
+      }
+
+      const abc = `X:1
+T:Random Melody in ${scaleName}
+M:4/4
+L:1/4
+Q:120
+K:${scale[0]}
+${melody.join(" ")}
+`;
+
+      return abc;
+    }
+
+    let visualObj;
+
+    function renderABC(abc) {
+      visualObj = ABCJS.renderAbc("notation", abc, {
+        add_classes: true,
+        responsive: "resize"
+      })[0];
+
+      const synthControl = new ABCJS.synth.SynthController();
+      synthControl.load("#midi", null, {
+        displayPlay: true,
+        displayProgress: true,
+        displayClock: true
+      });
+
+      if (ABCJS.synth.supportsAudio()) {
+        const synth = new ABCJS.synth.CreateSynth();
+        synth.init({ visualObj }).then(() => {
+          synth.prime().then(() => {
+            synthControl.setTune(visualObj, true);
+          });
+        });
+      } else {
+        console.log("Audio not supported.");
+      }
+    }
+
+    function update() {
+      const scale = document.getElementById("scale").value;
+      const abc = generateMelody(scale);
+      renderABC(abc);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const scaleSelect = document.getElementById("scale");
+      for (const scale of scaleOptions) {
+        const option = document.createElement("option");
+        option.value = scale;
+        option.textContent = scale;
+        scaleSelect.appendChild(option);
+      }
+
+      document.getElementById("generate").addEventListener("click", update);
+    });
+  </script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 1em;
+    }
+
+    #controls {
+      margin-bottom: 1em;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🎵 Melody Generator</h1>
+
+  <div id="controls">
+    <label>
+      Scale:
+      <select id="scale"></select>
+    </label>
+    <button id="generate">🎼 New Melody</button>
+  </div>
+
+  <div id="notation"></div>
+  <div id="midi"></div>
+</body>
+
+</html>
